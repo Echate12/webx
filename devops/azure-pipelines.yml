@@ -1,0 +1,60 @@
+trigger:
+  branches:
+    include:
+      - develop
+      - main
+
+variables:
+  imageName: product-manager
+  # Nom de votre ACR : à adapter
+  acrName: myAcrName.azurecr.io  
+  # Resource group & Web App pour déploiement
+  resourceGroup: myResourceGroup  
+  webAppName: myWebAppContainer  
+
+stages:
+# --- Stage 1 : Build & Push Docker image to ACR ---
+- stage: Build
+  displayName: 'Build and push Docker image'
+  jobs:
+  - job: BuildAndPush
+    displayName: Build & Push
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Docker@2
+      displayName: 'Login to ACR'
+      inputs:
+        command: login
+        containerRegistry: '$(acrServiceConnection)'  # configurer un service connection vers votre ACR
+
+    - task: Docker@2
+      displayName: 'Build and push image'
+      inputs:
+        repository: '$(acrName)/$(imageName)'
+        command: buildAndPush
+        Dockerfile: 'Dockerfile'
+        tags: |
+          $(Build.BuildId)
+
+# --- Stage 2 : Deploy to Azure Web App for Containers ---
+- stage: Deploy
+  displayName: 'Deploy to Azure'
+  dependsOn: Build
+  jobs:
+  - deployment: DeployWeb
+    displayName: 'Deploy Web App'
+    environment: 'production'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureWebAppContainer@1
+            displayName: 'Deploy to Azure Web App'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)' # service connection vers votre subscription
+              appName: '$(webAppName)'
+              resourceGroupName: '$(resourceGroup)'
+              imageName: '$(acrName)/$(imageName):$(Build.BuildId)'

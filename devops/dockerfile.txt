@@ -1,0 +1,12 @@
+# Étape 1 : builder (facultative si votre appli est statique)
+# Ici on n'a qu'un site statique, donc on saute directement à nginx
+FROM nginx:stable-alpine AS runtime
+
+# Copie des fichiers statiques
+COPY src/ /usr/share/nginx/html/
+
+# Expose le port 80
+EXPOSE 80
+
+# Commande de démarrage par défaut
+CMD ["nginx", "-g", "daemon off;"]
